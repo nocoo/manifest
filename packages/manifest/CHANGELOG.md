@@ -1,5 +1,21 @@
 # manifest
 
+## 6.10.0
+
+### Minor Changes
+
+- a29a705: Add a per-auth-type breakdown to the public `provider-tokens` endpoint. Each provider now carries an `auth_types` array (`{ auth_type, total_tokens, model_count }`) alongside the existing `models` list, so a provider that is used both with an API key and a subscription (e.g. OpenAI API key vs ChatGPT subscription) can be listed once per auth method. Usage with no recorded auth type is counted as `api_key`. The existing `provider`/`total_tokens`/`models` fields are unchanged, so the addition is backwards compatible.
+- 43e06c6: Add Xiaomi MiMo as an API-key provider with MiMo Token Plan subscription routing.
+
+### Patch Changes
+
+- 3f59cc4: Route Copilot subscription models using their advertised supported endpoints so responses-only models use `/responses` directly instead of failing on `/chat/completions`.
+- d018cb4: Fix custom (header) routing tiers keeping stale account pins after disconnecting one of several accounts on the same provider. Provider-reference cleanup only updated complexity and specificity tiers, so disconnecting an account, renaming a key, or deactivating all providers left header-tier routes pointing at a removed account (the account chip then rendered blank). `relabelOverrides`, `cleanupProviderReferences`, and `deactivateAllProviders` now clean `header_tiers` routes the same way.
+- cb48cc0: Fix OAuth subscription tokens getting permanently invalidated (#2012). Providers like OpenAI now rotate refresh tokens on every refresh, so the previous "refresh then persist" path could brick an account when parallel proxy requests refreshed the same credential at once, or when the DB write failed after the provider had already rotated. Lazy refreshes are now coordinated per credential: concurrent refreshes coalesce into a single round-trip, the freshest token is re-read from the database before refreshing, and the rotated token is persisted with retries. Applies to all subscription OAuth providers (OpenAI, Gemini, Anthropic, MiniMax, xAI, Kiro).
+- 6677b95: Fix the Playground sending MiniMax subscription requests to the default region endpoint. The OAuth `resource_url` (which encodes the chosen region) was only applied for Gemini and dropped for MiniMax; it is now turned into a `minimax-subscription` base-URL override the same way the proxy does, so Playground requests hit the correct region. Follow-up to #2110 (cubic-flagged).
+- 4a7e1fa: Normalize provider reasoning stream aliases such as Copilot's `reasoning_text` to OpenAI-compatible `reasoning_content` for chat-completions clients while preserving provider-specific replay safeguards.
+- 34febf8: Fix the Playground using the wrong endpoint for region-based providers (qwen, zai) and forwarding vendor-prefixed model ids for copilot/zai. The proxy's endpoint + model resolution (region overrides for minimax/qwen/zai, prefix stripping for copilot/minimax/zai, custom-provider endpoints) is now a shared `resolveForwardEndpoint` helper used by both the proxy and the Playground, so the two paths can no longer drift.
+
 ## 6.9.2
 
 ### Patch Changes
